@@ -138,7 +138,11 @@ export const searchTripadvisorLocations = async (query) => {
   try {
     const url = `https://api.content.tripadvisor.com/api/v1/location/search?query=${encodeURIComponent(query)}&language=th`;
     const response = await axios.get(url, {
-      headers: { 'X-TripAdvisor-API-Key': apiKey, 'Accept': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json',
+        'Referer': 'https://tripsterai.onrender.com'
+      },
     });
     const locations = response.data?.data?.map(item => ({
       locationId: item.location_id,
