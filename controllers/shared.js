@@ -4,14 +4,11 @@ import { v2 } from "@google-cloud/translate";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-<<<<<<< HEAD
 
 // Simple in-memory cache (สามารถเปลี่ยนเป็น Redis ได้)
 const cache = new Map();
 const CACHE_DURATION = 60 * 60 * 1000; // 1 ชั่วโมง
 
-=======
->>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -30,21 +27,13 @@ export const getAccessToken = async () => {
     return token.token;
   } catch (error) {
     console.error("❌ Error fetching Vertex AI token:", error.message);
-<<<<<<< HEAD
     throw new Error("Failed to fetch Vertex AI token");
-=======
-    return null;
->>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
   }
 };
 
 export const getAIResponse = async (userMessage) => {
   const accessToken = await getAccessToken();
-<<<<<<< HEAD
   if (!accessToken) throw new Error("ระบบขัดข้อง กรุณาลองใหม่ภายหลัง");
-=======
-  if (!accessToken) return "ระบบขัดข้อง กรุณาลองใหม่ภายหลัง";
->>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
   try {
     const tonePrompt = `\nคุณคือ Tripster เป็นผู้ช่วยด้านการท่องเที่ยวภาคเหนือของประเทศไทย.\nตอบให้สั้น เข้าใจง่าย ใช้ภาษาสุภาพ เหมาะกับทุกเพศทุกวัย และตอบตามข้อเท็จจริง.\n`;
     const messages = [
@@ -58,18 +47,13 @@ export const getAIResponse = async (userMessage) => {
     return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "ขออภัย ฉันไม่สามารถให้ข้อมูลได้";
   } catch (error) {
     console.error("❌ Vertex AI error:", error.response?.data || error.message);
-<<<<<<< HEAD
     throw new Error("ระบบมีปัญหา กรุณาลองใหม่");
-=======
-    return "ระบบมีปัญหา กรุณาลองใหม่";
->>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
   }
 };
 
 // --- Google Places API ---
 export const getLocationFromGooglePlaces = async (placeName, type = "tourist_attraction") => {
   if (!placeName) return undefined;
-<<<<<<< HEAD
   const cacheKey = `google_place_${placeName}_${type}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
@@ -101,22 +85,6 @@ export const getLocationFromGooglePlaces = async (placeName, type = "tourist_att
   }
 };
 
-=======
-  const key = process.env.GOOGLE_PLACES_API_KEY;
-  const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(placeName)}&inputtype=textquery&fields=place_id,name,geometry,types&key=${key}`;
-  const res = await axios.get(url);
-  const candidates = res.data.candidates;
-  if (candidates && candidates.length > 0) {
-    return {
-      placeId: candidates[0].place_id,
-      name: candidates[0].name,
-      location: candidates[0].geometry?.location,
-      types: candidates[0].types,
-    };
-  }
-  return undefined;
-};
->>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
 export const getPlacePhotoUrl = (photoReference, maxwidth = 600) => {
   if (!photoReference) return null;
   const key = process.env.GOOGLE_PLACES_API_KEY;
@@ -125,7 +93,6 @@ export const getPlacePhotoUrl = (photoReference, maxwidth = 600) => {
 
 export const getPlaceDetails = async (placeId) => {
   if (!placeId) return null;
-<<<<<<< HEAD
   const cacheKey = `place_details_${placeId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
@@ -310,26 +277,3 @@ export const getTripadvisorLandmarks = async (destination) => {
 // ฟังก์ชัน getHotelsNearPlace และ searchPlaceWithCustomSearch คงเดิม (ถ้าต้องการปรับปรุง บอกมาได้เลย)
 export const getHotelsNearPlace = async (placeName) => { /* คงเดิม */ };
 export const searchPlaceWithCustomSearch = async (placeName, context = "สถานที่ท่องเที่ยว") => { /* คงเดิม */ };
-=======
-  const key = process.env.GOOGLE_PLACES_API_KEY;
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,photos,geometry,formatted_address,types&key=${key}`;
-  const res = await axios.get(url);
-  const details = res.data.result;
-  let photoUrls = [];
-  if (details?.photos && details.photos.length > 0) {
-    photoUrls = details.photos.map(photo =>
-      getPlacePhotoUrl(photo.photo_reference)
-    );
-  }
-  return {
-    ...details,
-    photoUrls,
-  };
-};
-export const getHotelsNearPlace = async (placeName) => {
-  // ... (เหมือน server.js)
-};
-export const searchPlaceWithCustomSearch = async (placeName, context = "สถานที่ท่องเที่ยว") => {
-  // ... (เหมือน server.js)
-}; 
->>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
