@@ -8,6 +8,7 @@ import { getFirestore } from "firebase/firestore";
 import planRoutes from "./routes/planRoutes.js";
 import placesRoutes from "./routes/placesRoutes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import rateLimit from "express-rate-limit";
 
 dotenv.config();
 
@@ -18,7 +19,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-app.use(errorHandler);
+
+// ตั้งค่า rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 นาที
+  max: 100, // จำกัด 100 requests ต่อ IP
+  message: "คุณเรียก API มากเกินไป กรุณาลองใหม่ในภายหลัง",
+});
+app.use("/api", limiter);
 
 const requiredEnvVars = [
   "FIREBASE_API_KEY",
@@ -33,6 +41,7 @@ const requiredEnvVars = [
   "PROJECT_ID",
   "GOOGLE_CUSTOM_SEARCH_API_KEY",
   "GOOGLE_CUSTOM_SEARCH_ENGINE_ID",
+  "TRIPADVISOR_API_KEY", // เพิ่ม Tripadvisor API key
 ];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
@@ -53,11 +62,11 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 console.log("✅ Firebase initialized successfully (Web API)");
 
-// --- ใช้ routes ที่แยกไว้ ---
 app.use("/api/plan", planRoutes);
 app.use("/api", placesRoutes);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🌐 Tripster Web API running on port ${PORT}`);
-}); 
+});
