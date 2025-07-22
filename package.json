@@ -17,7 +17,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+<<<<<<< HEAD
     "express-rate-limit": "^8.0.1",
+=======
+>>>>>>> 073e983d9bfc5de307650dbfb427581aeed9eb41
     "firebase": "^11.4.0",
     "google-auth-library": "^9.15.1",
     "node-cache": "^5.1.2",
