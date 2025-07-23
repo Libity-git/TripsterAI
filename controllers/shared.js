@@ -14,7 +14,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.resolve(__dirname, "../config/vertex-ai-key.json");
+const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, "..", "config", "vertex-ai-key.json");
 const auth = new GoogleAuth({ keyFilename: keyPath, scopes: "https://www.googleapis.com/auth/cloud-platform" });
 const translate = new v2.Translate({ keyFilename: keyPath });
 
