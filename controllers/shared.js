@@ -255,25 +255,35 @@ export const getTripadvisorNearby = async (lat, lng) => {
 export const getTripadvisorLandmarks = async (destination) => {
   const apiKey = process.env.TRIPADVISOR_API_KEY;
   if (!apiKey || !destination) return [];
-  const cacheKey = `tripadvisor_landmarks_${destination}`;
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
-
   try {
-    const response = await axios.get('https://api.content.tripadvisor.com/api/v1/location_mapper/locations', {
-      params: { query: destination },
-      headers: { 'X-TripAdvisor-API-Key': apiKey },
+    // 1. ค้นหา locationId
+    const searchRes = await axios.get('https://api.content.tripadvisor.com/api/v1/location/search', {
+      params: {
+        key: apiKey,
+        searchQuery: destination,
+        language: 'en'
+      }
     });
-    const landmarks = response.data?.data?.map(item => ({
-      name: item.name,
-      image: item.photo?.images?.original?.url || item.photo?.images?.large?.url || null,
-      description: item.description || item.address || '',
-      link: item.web_url || '',
-    })).filter(l => l.image && l.name) || [];
-    cache.set(cacheKey, landmarks);
-    setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
-    return landmarks;
-  } catch (error) {
-    console.error('[Tripadvisor Landmarks API error]', error.response?.data || error.message);
+    const locations = searchRes.data.data || [];
+    if (locations.length === 0) return [];
+    // 2. ดึงรูปจาก locationId แรก
+    const locationId = locations[0].location_id;
+    const photosRes = await axios.get(`https://api.content.tripadvisor.com/api/v1/location/${locationId}/photos`, {
+      params: {
+        key: apiKey,
+        language: 'en'
+      }
+    });
+    const photos = photosRes.data.data || [];
+    // 3. map ข้อมูล
+    return photos.map(photo => ({
+      name: locations[0].name, // หรือ photo.caption ถ้ามี
+      image: photo.images?.original?.url || photo.images?.large?.url || null,
+      description: photo.caption || '',
+      link: locations[0].web_url || ''
+    })).filter(l => l.image && l.name);
+  } catch (e) {
+    console.error('[Tripadvisor Landmarks API error]', e?.response?.data || e.message);
     return [];
   }
 };

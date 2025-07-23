@@ -16,6 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1); // รองรับ X-Forwarded-For header บน Render/Cloud
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -70,3 +71,10 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🌐 Tripster Web API running on port ${PORT}`);
 });
+
+const cors = require('cors');
+app.use(cors({
+  origin: 'https://tripsterai.onrender.com', // หรือ '*' สำหรับทดสอบ
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
