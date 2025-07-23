@@ -1,66 +1,34 @@
-import { getLocationFromGooglePlaces, getPlaceDetails, getHotelsNearPlace, searchPlaceWithCustomSearch, getTripadvisorReviews, getTripadvisorNearby } from "./shared.js";
+import { getAIResponse, getPlaceDetails, getLocationFromGooglePlaces, getTripadvisorLandmarks, getTripadvisorReviews, getTripadvisorNearby } from "./shared.js";
 
-export const getPlace = async (req, res, next) => {
+export const createPlan = async (req, res, next) => {
   try {
-    const { query } = req.query;
-    if (!query) return res.status(400).json({ error: "กรุณาระบุชื่อสถานที่" });
-    const place = await getLocationFromGooglePlaces(query);
-    if (!place) return res.status(404).json({ error: "ไม่พบสถานที่" });
-    const details = await getPlaceDetails(place.placeId);
+    const { startLocation, destination, days, budget, travelWith, preference, interests } = req.body;
+    if (!startLocation || !destination || !budget) {
+      return res.status(400).json({ error: "กรุณาระบุข้อมูลที่จำเป็น: จุดเริ่มต้น, ปลายทาง, และงบประมาณ" });
+    }
+    const aiPrompt = `\nช่วยวางแผนการท่องเที่ยวจาก ${startLocation} ไป ${destination} จำนวน ${days || 3} วัน งบประมาณ ${budget} บาท สไตล์: ${preference || "-"} ความสนใจ: ${interests || "-"}`;
+    const place = await getLocationFromGooglePlaces(destination).catch(() => null);
+
+    const [plan, details, landmarks, reviews, nearbyAttractions] = await Promise.all([
+      getAIResponse(aiPrompt).catch(() => "ขออภัย ฉันไม่สามารถให้แผนได้ กรุณาลองใหม่"),
+      place?.placeId ? getPlaceDetails(place.placeId).catch(() => null) : null,
+      getTripadvisorLandmarks(destination).catch(() => []),
+      place?.tripadvisorLocationId ? getTripadvisorReviews(place.tripadvisorLocationId).catch(() => []) : [],
+      place?.location ? getTripadvisorNearby(place.location.lat, place.location.lng).catch(() => []),
+    ].map(p => p.catch(e => { console.error(e.message); return e.fallback || null; })));
+
     res.json({
-      ...place,
-      ...details,
-      photoUrl: details?.photoUrls?.[0],
-      tripadvisorDetails: details?.tripadvisorDetails,
+      plan,
+      photoUrls: details?.photoUrls || [],
+      placeName: details?.name || destination,
+      landmarks,
+      reviews,
+      nearbyAttractions: nearbyAttractions.filter(a => a.category === 'attraction'),
+      attribution: {
+        logoUrl: "https://www.tripadvisor.com/img/cdsi/img2/branding/tripadvisor_logo_115x18.gif", // ตัวอย่าง URL ตาม Display Requirements
+        link: "https://www.tripadvisor.com"
+      }
     });
-  } catch (error) {
-    next(error); // ส่งต่อไปยัง errorHandler
-  }
-};
-
-export const getHotels = async (req, res, next) => {
-  try {
-    const { place } = req.query;
-    if (!place) return res.status(400).json({ error: "กรุณาระบุชื่อสถานที่" });
-    const placeData = await getLocationFromGooglePlaces(place);
-    const [hotels, nearbyHotels] = await Promise.all([
-      getHotelsNearPlace(place),
-      placeData?.location ? getTripadvisorNearby(placeData.location.lat, placeData.location.lng) : [],
-    ]);
-    res.json({
-      hotels: [
-        ...hotels,
-        ...nearbyHotels.filter(h => h.category === 'hotel'),
-      ],
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getReviews = async (req, res, next) => {
-  try {
-    const { place } = req.query;
-    if (!place) return res.status(400).json({ error: "กรุณาระบุชื่อสถานที่" });
-    const placeData = await getLocationFromGooglePlaces(place);
-    const [customReviews, tripadvisorReviews] = await Promise.all([
-      searchPlaceWithCustomSearch(place, "รีวิว"),
-      placeData?.tripadvisorLocationId ? getTripadvisorReviews(placeData.tripadvisorLocationId) : [],
-    ]);
-    res.json({ reviews: [...customReviews, ...tripadvisorReviews] });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getNearbyAttractions = async (req, res, next) => {
-  try {
-    const { place } = req.query;
-    if (!place) return res.status(400).json({ error: "กรุณาระบุชื่อสถานที่" });
-    const placeData = await getLocationFromGooglePlaces(place);
-    if (!placeData?.location) return res.status(404).json({ error: "ไม่พบสถานที่" });
-    const nearby = await getTripadvisorNearby(placeData.location.lat, placeData.location.lng);
-    res.json({ attractions: nearby.filter(a => a.category === 'attraction') });
   } catch (error) {
     next(error);
   }
