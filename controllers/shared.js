@@ -14,10 +14,22 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-if (!keyPath) throw new Error('Missing GOOGLE_APPLICATION_CREDENTIALS');
-const auth = new GoogleAuth({ credentials: JSON.parse(keyPath), scopes: "https://www.googleapis.com/auth/cloud-platform" });
-const translate = new v2.Translate({ credentials: JSON.parse(keyPath) });
+// กำหนด keyPath และจัดการทั้ง JSON string และพาธไฟล์
+let keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, "./config/vertex-ai-key.json");
+if (!keyPath) throw new Error('Missing GOOGLE_APPLICATION_CREDENTIALS or vertex-ai-key.json file at ./config/vertex-ai-key.json');
+
+// ตรวจสอบว่า keyPath เป็น JSON string หรือพาธไฟล์
+let credentials;
+try {
+  credentials = typeof keyPath === 'string' && !keyPath.includes('\\') && !keyPath.includes('/') 
+    ? JSON.parse(keyPath) 
+    : { keyFilename: keyPath };
+} catch (e) {
+  credentials = { keyFilename: keyPath }; // ใช้เป็นพาธไฟล์ถ้า parse ล้มเหลว
+}
+
+const auth = new GoogleAuth({ credentials, scopes: "https://www.googleapis.com/auth/cloud-platform" });
+const translate = new v2.Translate({ credentials });
 
 const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-001";
 
@@ -99,9 +111,11 @@ export const getPlaceDetails = async (placeId) => {
   const key = process.env.GOOGLE_PLACES_API_KEY;
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,photos,geometry,formatted_address,types&key=${key}`;
   try {
+    const place = await getLocationFromGooglePlaces(placeId); // ดึง locationId จาก placeId
+    const tripadvisorLocationId = place?.tripadvisorLocationId;
     const [googleRes, tripadvisorDetails] = await Promise.all([
       axios.get(url),
-      getTripadvisorDetails(/* แมพ placeId เป็น locationId จาก getLocationFromGooglePlaces */),
+      tripadvisorLocationId ? getTripadvisorDetails(tripadvisorLocationId) : Promise.resolve(null),
     ]);
     const details = googleRes.data.result;
     let photoUrls = [];
