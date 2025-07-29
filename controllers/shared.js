@@ -5,7 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
-// Simple in-memory cache (สามารถเปลี่ยนเป็น Redis ได้)
+// Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 60 * 60 * 1000; // 1 ชั่วโมง
 
@@ -25,7 +25,7 @@ try {
     ? JSON.parse(keyPath) 
     : { keyFilename: keyPath };
 } catch (e) {
-  credentials = { keyFilename: keyPath }; // ใช้เป็นพาธไฟล์ถ้า parse ล้มเหลว
+  credentials = { keyFilename: keyPath };
 }
 
 const auth = new GoogleAuth({ credentials, scopes: "https://www.googleapis.com/auth/cloud-platform" });
@@ -111,7 +111,7 @@ export const getPlaceDetails = async (placeId) => {
   const key = process.env.GOOGLE_PLACES_API_KEY;
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,photos,geometry,formatted_address,types&key=${key}`;
   try {
-    const place = await getLocationFromGooglePlaces(placeId); // ดึง locationId จาก placeId
+    const place = await getLocationFromGooglePlaces(placeId);
     const tripadvisorLocationId = place?.tripadvisorLocationId;
     const [googleRes, tripadvisorDetails] = await Promise.all([
       axios.get(url),
@@ -141,88 +141,109 @@ export const getPlaceDetails = async (placeId) => {
   }
 };
 
-// --- Tripadvisor API ---
+// --- RapidAPI for TripAdvisor Data ---
 export const searchTripadvisorLocations = async (query) => {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
+  const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !query) return [];
   const cacheKey = `tripadvisor_search_${query}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
-    const url = `https://api.content.tripadvisor.com/api/v1/location/search?query=${encodeURIComponent(query)}&language=th&key=${apiKey}`;
-    const response = await axios.get(url, {
+    const options = {
+      method: 'GET',
+      url: 'https://tripadvisor-com1.p.rapidapi.com/locations/search',
+      params: { query: encodeURIComponent(query), language: 'th' },
       headers: {
-        'Accept': 'application/json',
-        'Referer': 'https://tripsterai.onrender.com'
-      },
-    });
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
+      }
+    };
+    const response = await axios.request(options);
     const locations = response.data?.data?.map(item => ({
-      locationId: item.location_id,
-      name: item.name,
-      address: item.address_obj?.address_string || '',
+      locationId: item.result_object.location_id,
+      name: item.result_object.name,
+      address: item.result_object.address || '',
     })) || [];
     cache.set(cacheKey, locations);
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return locations;
   } catch (error) {
-    console.error('[Tripadvisor Search API error]', error.response?.data || error.message);
+    console.error('[RapidAPI Search API error]', error.response?.data || error.message);
     return [];
   }
 };
 
 export const getTripadvisorDetails = async (locationId) => {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
+  const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return null;
   const cacheKey = `tripadvisor_details_${locationId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
-    const url = `https://api.content.tripadvisor.com/api/v1/location/${locationId}/details?language=th¤cy=THB&key=${apiKey}`;
-    const response = await axios.get(url, {
-      headers: { 'Accept': 'application/json', 'Referer': 'https://tripsterai.onrender.com' },
-    });
+    const options = {
+      method: 'GET',
+      url: `https://tripadvisor-com1.p.rapidapi.com/locations/details`,
+      params: { locationId, language: 'th', currency: 'THB' },
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
+      }
+    };
+    const response = await axios.request(options);
     const result = { ...response.data, locationId };
     cache.set(cacheKey, result);
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return result;
   } catch (error) {
-    console.error('[Tripadvisor Details API error]', error.response?.data || error.message);
+    console.error('[RapidAPI Details API error]', error.response?.data || error.message);
     return null;
   }
 };
 
 export const getTripadvisorPhotos = async (locationId) => {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
+  const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return [];
   const cacheKey = `tripadvisor_photos_${locationId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
-    const url = `https://api.content.tripadvisor.com/api/v1/location/${locationId}/photos?language=th&key=${apiKey}`;
-    const response = await axios.get(url, {
-      headers: { 'Accept': 'application/json', 'Referer': 'https://tripsterai.onrender.com' },
-    });
+    const options = {
+      method: 'GET',
+      url: `https://tripadvisor-com1.p.rapidapi.com/photos/get`,
+      params: { locationId, language: 'th' },
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
+      }
+    };
+    const response = await axios.request(options);
     const photos = response.data?.data?.map(photo => photo.images?.large?.url || photo.images?.original?.url) || [];
     cache.set(cacheKey, photos);
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return photos;
   } catch (error) {
-    console.error('[Tripadvisor Photos API error]', error.response?.data || error.message);
+    console.error('[RapidAPI Photos API error]', error.response?.data || error.message);
     return [];
   }
 };
 
 export const getTripadvisorReviews = async (locationId) => {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
+  const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return [];
   const cacheKey = `tripadvisor_reviews_${locationId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
-    const url = `https://api.content.tripadvisor.com/api/v1/location/${locationId}/reviews?language=th&key=${apiKey}`;
-    const response = await axios.get(url, {
-      headers: { 'Accept': 'application/json', 'Referer': 'https://tripsterai.onrender.com' },
-    });
+    const options = {
+      method: 'GET',
+      url: `https://tripadvisor-com1.p.rapidapi.com/reviews/get`,
+      params: { locationId, language: 'th' },
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
+      }
+    };
+    const response = await axios.request(options);
     const reviews = response.data?.data?.map(review => ({
       text: review.text,
       rating: review.rating,
@@ -233,22 +254,28 @@ export const getTripadvisorReviews = async (locationId) => {
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return reviews;
   } catch (error) {
-    console.error('[Tripadvisor Reviews API error]', error.response?.data || error.message);
+    console.error('[RapidAPI Reviews API error]', error.response?.data || error.message);
     return [];
   }
 };
 
 export const getTripadvisorNearby = async (lat, lng) => {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
+  const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !lat || !lng) return [];
   const cacheKey = `tripadvisor_nearby_${lat}_${lng}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
-    const url = `https://api.content.tripadvisor.com/api/v1/location/nearby_search?latLong=${lat},${lng}&language=th&key=${apiKey}`;
-    const response = await axios.get(url, {
-      headers: { 'Accept': 'application/json', 'Referer': 'https://tripsterai.onrender.com' },
-    });
+    const options = {
+      method: 'GET',
+      url: `https://tripadvisor-com1.p.rapidapi.com/nearby-search`,
+      params: { latLong: `${lat},${lng}`, language: 'th', units: 'kilometers' },
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
+      }
+    };
+    const response = await axios.request(options);
     const nearby = response.data?.data?.map(item => ({
       locationId: item.location_id,
       name: item.name,
@@ -259,43 +286,54 @@ export const getTripadvisorNearby = async (lat, lng) => {
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return nearby;
   } catch (error) {
-    console.error('[Tripadvisor Nearby Search API error]', error.response?.data || error.message);
+    console.error('[RapidAPI Nearby Search API error]', error.response?.data || error.message);
     return [];
   }
 };
 
 export const getTripadvisorLandmarks = async (destination) => {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
+  const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !destination) return [];
   const cacheKey = `tripadvisor_landmarks_${destination}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
-    const url = `https://api.content.tripadvisor.com/api/v1/location/search?query=${encodeURIComponent(destination)}&language=th&key=${apiKey}`;
-    const searchRes = await axios.get(url, {
-      headers: { 'Accept': 'application/json', 'Referer': 'https://tripsterai.onrender.com' },
-    });
-    const locations = searchRes.data?.data || [];
+    const locations = await searchTripadvisorLocations(destination);
     if (locations.length === 0) return [];
 
-    const locationId = locations[0].location_id;
-    const photosRes = await axios.get(`https://api.content.tripadvisor.com/api/v1/location/${locationId}/photos?key=${apiKey}`, {
-      headers: { 'Accept': 'application/json', 'Referer': 'https://tripsterai.onrender.com' },
-    });
-    const photos = photosRes.data?.data || [];
-
-    const landmarks = photos.map(photo => ({
-      name: locations[0].name,
-      image: photo.images?.original?.url || photo.images?.large?.url || null,
-      description: photo.caption || '',
-      link: locations[0].web_url || ''
-    })).filter(l => l.image && l.name);
+    const locationId = locations[0].locationId;
+    const options = {
+      method: 'GET',
+      url: `https://tripadvisor-com1.p.rapidapi.com/attractions/search`,
+      params: {
+        geoId: locationId,
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        language: 'th',
+        currency: 'THB',
+        units: 'kilometers',
+        page: '1',
+        sortType: 'asc',
+        adults: '2'
+      },
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
+      }
+    };
+    const response = await axios.request(options);
+    const landmarks = response.data?.data?.map(item => ({
+      name: item.name,
+      image: item.photo?.images?.large?.url || null,
+      description: item.description || '',
+      link: item.web_url || ''
+    })) || [];
 
     cache.set(cacheKey, landmarks);
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return landmarks;
   } catch (e) {
-    console.error('[Tripadvisor Landmarks API error]', e?.response?.data || e.message);
+    console.error('[RapidAPI Landmarks API error]', e.response?.data || e.message);
     return [];
   }
 };
