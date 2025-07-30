@@ -115,7 +115,7 @@ export const getPlaceDetails = async (placeId) => {
     const tripadvisorLocationId = place?.tripadvisorLocationId;
     const [googleRes, tripadvisorDetails] = await Promise.all([
       axios.get(url),
-      tripadvisorLocationId ? getTripadvisorDetails(tripadvisorLocationId) : Promise.resolve(null),
+      tripadvisorLocationId ? getTripadvisorDetails(tripadvisorLocationId, 'attractions') : Promise.resolve(null),
     ]);
     const details = googleRes.data.result;
     let photoUrls = [];
@@ -124,7 +124,7 @@ export const getPlaceDetails = async (placeId) => {
     }
 
     const tripadvisorPhotos = tripadvisorDetails?.locationId
-      ? await getTripadvisorPhotos(tripadvisorDetails.locationId)
+      ? await getTripadvisorPhotos(tripadvisorDetails.locationId, 'attractions')
       : [];
 
     const result = {
@@ -179,54 +179,104 @@ export const searchTripadvisorLocations = async (query) => {
   }
 };
 
-export const getTripadvisorDetails = async (locationId) => {
+export const getTripadvisorDetails = async (locationId, category = 'attractions') => {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return null;
-  const cacheKey = `tripadvisor_details_${locationId}`;
+  const cacheKey = `${category}_details_${locationId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  let url, params;
+  if (category === 'attractions') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/attractions/details';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else if (category === 'hotels') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/hotels/details';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      rooms: '1',
+      adults: '2',
+      children: '1'
+    };
+  } else if (category === 'restaurants') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/restaurants/details';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else {
+    return null;
+  }
 
   try {
     const options = {
       method: 'GET',
-      url: 'https://tripadvisor-com1.p.rapidapi.com/attractions/details',
-      params: {
-        contentId: locationId,
-        language: 'th',
-        currency: 'THB',
-        units: 'kilometers'
-      },
+      url,
+      params,
       headers: {
         'x-rapidapi-key': apiKey,
         'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
       }
     };
     const response = await axios.request(options);
-    const result = { ...response.data, locationId };
+    const result = { ...response.data, locationId, category };
     cache.set(cacheKey, result);
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return result;
   } catch (error) {
-    console.error('[RapidAPI Details API error]', error.response?.data || error.message);
+    console.error(`[RapidAPI ${category} Details API error]`, error.response?.data || error.message);
     return null;
   }
 };
 
-export const getTripadvisorPhotos = async (locationId) => {
+export const getTripadvisorPhotos = async (locationId, category = 'attractions') => {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return [];
-  const cacheKey = `tripadvisor_photos_${locationId}`;
+  const cacheKey = `${category}_photos_${locationId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  let url, params;
+  if (category === 'attractions') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/attractions/media-gallery';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else if (category === 'hotels') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/hotels/media-gallery';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else if (category === 'restaurants') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/restaurants/media-gallery';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else {
+    return [];
+  }
 
   try {
     const options = {
       method: 'GET',
-      url: 'https://tripadvisor-com1.p.rapidapi.com/attractions/media-gallery',
-      params: {
-        contentId: locationId,
-        language: 'th',
-        currency: 'THB',
-        units: 'kilometers'
-      },
+      url,
+      params,
       headers: {
         'x-rapidapi-key': apiKey,
         'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
@@ -238,28 +288,54 @@ export const getTripadvisorPhotos = async (locationId) => {
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return photos;
   } catch (error) {
-    console.error('[RapidAPI Photos API error]', error.response?.data || error.message);
+    console.error(`[RapidAPI ${category} Photos API error]`, error.response?.data || error.message);
     return [];
   }
 };
 
-export const getTripadvisorReviews = async (locationId) => {
+export const getTripadvisorReviews = async (locationId, category = 'attractions') => {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return [];
-  const cacheKey = `tripadvisor_reviews_${locationId}`;
+  const cacheKey = `${category}_reviews_${locationId}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  let url, params;
+  if (category === 'attractions') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/attractions/reviews';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      page: '1',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else if (category === 'hotels') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/hotels/reviews';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      page: '1',
+      currency: 'THB',
+      units: 'kilometers'
+    };
+  } else if (category === 'restaurants') {
+    url = 'https://tripadvisor-com1.p.rapidapi.com/restaurants/reviews';
+    params = {
+      contentId: locationId,
+      language: 'th',
+      currency: 'THB',
+      page: '1',
+      units: 'kilometers'
+    };
+  } else {
+    return [];
+  }
 
   try {
     const options = {
       method: 'GET',
-      url: 'https://tripadvisor-com1.p.rapidapi.com/attractions/reviews',
-      params: {
-        contentId: locationId,
-        language: 'th',
-        page: '1',
-        currency: 'THB',
-        units: 'kilometers'
-      },
+      url,
+      params,
       headers: {
         'x-rapidapi-key': apiKey,
         'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
@@ -276,7 +352,7 @@ export const getTripadvisorReviews = async (locationId) => {
     setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
     return reviews;
   } catch (error) {
-    console.error('[RapidAPI Reviews API error]', error.response?.data || error.message);
+    console.error(`[RapidAPI ${category} Reviews API error]`, error.response?.data || error.message);
     return [];
   }
 };
@@ -306,7 +382,7 @@ export const getTripadvisorNearby = async (lat, lng) => {
     const nearby = response.data?.data?.map(item => ({
       locationId: item.location_id,
       name: item.name,
-      distance: item.distance || null, // อาจต้องคำนวณเองถ้า API ไม่คืนค่า
+      distance: item.distance || null,
       category: item.category?.name || '',
     })) || [];
     cache.set(cacheKey, nearby);
@@ -363,40 +439,6 @@ export const getHotelsNearPlace = async (placeName) => {
   }
 };
 
-export const getTripadvisorDetails = async (locationId) => {
-  const apiKey = process.env.RAPIDAPI_KEY;
-  if (!apiKey || !locationId) return null;
-  const cacheKey = `tripadvisor_details_${locationId}`;
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
-
-  try {
-    const options = {
-      method: 'GET',
-      url: 'https://tripadvisor-com1.p.rapidapi.com/hotels/details',
-      params: {
-        contentId: locationId,
-        language: 'th',
-        currency: 'THB',
-        rooms: '1',
-        adults: '2',
-        children: '1'
-      },
-      headers: {
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
-      }
-    };
-    const response = await axios.request(options);
-    const result = { ...response.data, locationId };
-    cache.set(cacheKey, result);
-    setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
-    return result;
-  } catch (error) {
-    console.error('[RapidAPI Details API error]', error.response?.data || error.message);
-    return null;
-  }
-};
-
 export const getTripadvisorOffers = async (locationId) => {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return [];
@@ -431,38 +473,6 @@ export const getTripadvisorOffers = async (locationId) => {
   }
 };
 
-export const getTripadvisorPhotos = async (locationId) => {
-  const apiKey = process.env.RAPIDAPI_KEY;
-  if (!apiKey || !locationId) return [];
-  const cacheKey = `tripadvisor_photos_${locationId}`;
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
-
-  try {
-    const options = {
-      method: 'GET',
-      url: 'https://tripadvisor-com1.p.rapidapi.com/hotels/media-gallery',
-      params: {
-        contentId: locationId,
-        language: 'th',
-        currency: 'THB',
-        units: 'kilometers'
-      },
-      headers: {
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
-      }
-    };
-    const response = await axios.request(options);
-    const photos = response.data?.data?.map(photo => photo.images?.large?.url || photo.images?.original?.url) || [];
-    cache.set(cacheKey, photos);
-    setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
-    return photos;
-  } catch (error) {
-    console.error('[RapidAPI Photos API error]', error.response?.data || error.message);
-    return [];
-  }
-};
-
 export const getTripadvisorAmenities = async (locationId) => {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey || !locationId) return [];
@@ -491,44 +501,6 @@ export const getTripadvisorAmenities = async (locationId) => {
     return amenities;
   } catch (error) {
     console.error('[RapidAPI Amenities API error]', error.response?.data || error.message);
-    return [];
-  }
-};
-
-export const getTripadvisorReviews = async (locationId) => {
-  const apiKey = process.env.RAPIDAPI_KEY;
-  if (!apiKey || !locationId) return [];
-  const cacheKey = `tripadvisor_reviews_${locationId}`;
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
-
-  try {
-    const options = {
-      method: 'GET',
-      url: 'https://tripadvisor-com1.p.rapidapi.com/hotels/reviews',
-      params: {
-        contentId: locationId,
-        language: 'th',
-        page: '1',
-        currency: 'THB',
-        units: 'kilometers'
-      },
-      headers: {
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'tripadvisor-com1.p.rapidapi.com'
-      }
-    };
-    const response = await axios.request(options);
-    const reviews = response.data?.data?.map(review => ({
-      text: review.text,
-      rating: review.rating,
-      author: review.user?.username || 'Anonymous',
-      date: review.published_date,
-    })) || [];
-    cache.set(cacheKey, reviews);
-    setTimeout(() => cache.delete(cacheKey), CACHE_DURATION);
-    return reviews;
-  } catch (error) {
-    console.error('[RapidAPI Reviews API error]', error.response?.data || error.message);
     return [];
   }
 };
